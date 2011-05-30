@@ -1,0 +1,13 @@
+{
+  "name"          : "srcds",
+  "description"   : "Tools for connection to RCON For a srcds server",
+  "url"           : "https://github.com/Nican/SRCDS-node.js-tools",
+  "keywords"      : ["srcds", "half-life", "tf2", "rcon"],
+  "author"        : "Nican <nican132@gmail.com>",
+  "contributors"  : [],
+  "dependencies"  : {},
+  "main"          : "./rcon",
+  "directories"   : { "test": "./test" },
+  "version"       : "0.0.1",
+  "engines"       : {"node": ">=0.4.7"}
+}

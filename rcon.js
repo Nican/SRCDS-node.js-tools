@@ -38,13 +38,14 @@ function RCon(host, port, callback){
 	
 	
 	this.on('data', this._receiveMessage );
-	this.on('error', this._receiveError );
-	this.on('close', this._receiveError );
 	
 }
 
 util.inherits(RCon, net.Socket);
 
+/**
+ * Sends message to the server to authenticate
+ */
 RCon.prototype.auth = function( password, callback ){
 	
 	var returnId = this.command( exports.SERVERDATA_AUTH, password );
@@ -65,6 +66,11 @@ RCon.prototype.auth = function( password, callback ){
 	
 };
 
+/**
+ * Send a raw string to the server
+ * @param cmd a command to send
+ * @param callback a callback to be called with the same id
+ */
 RCon.prototype.send = function( cmd, callback ){
 	
 	var returnId = this.command( exports.SERVERDATA_EXECCOMMAND, cmd );
@@ -82,9 +88,9 @@ RCon.prototype.send = function( cmd, callback ){
 			if( id == returnId ){
 				callback.call(self, str);
 				count = 0;
-			}// else if( id > returnId ){
-			//	self.removeListener('response', receiveMsg);				
-			//}
+			} else if( id + 10 > returnId ){
+				self.removeListener('response', receiveMsg);				
+			}
 			
 		}
 		
@@ -92,8 +98,16 @@ RCon.prototype.send = function( cmd, callback ){
 
 	}
 	
+	return returnId;
+	
 };
 
+/**
+ * Send a raw message to the server
+ * @param cmd the commad id 
+ * @param message the message string to be sent
+ * @returns {Number}
+ */
 RCon.prototype.command = function( cmd, message ){
 	
 	var id = this.id = (this.id + 1) % (1<<30);
@@ -118,10 +132,17 @@ RCon.prototype.command = function( cmd, message ){
 	return id;
 };
 
+/**
+ * Callback to receiving a message from the server
+ */
 RCon.prototype._receiveMessage = function( data ){
 	
 	var dataLeft = 0;
 	
+	/* 
+	 * Since the packets comes in parts, it buffer hte message
+	 * Until the whole message is received
+	 */
 	if( this.activeBuffer == null ){
 		
 		var size = jspack.Unpack("<l", data ); //The first 3 integers (size, request id, command response)
@@ -136,7 +157,7 @@ RCon.prototype._receiveMessage = function( data ){
 		this.activeBuffer.lastWrite = toWrite;
 		
 	} else {
-		
+		//We already have part of a message, and we complete it with the new information
 		var toWrite = this.activeBuffer.length - this.activeBuffer.lastWrite - 1;
 		dataLeft = data.length - toWrite - 5;
 		
@@ -146,7 +167,7 @@ RCon.prototype._receiveMessage = function( data ){
 		
 	}
 	
-	
+	//If we have all the bytes we need, send out the message that we have finished
 	if( this.activeBuffer.lastWrite == this.activeBuffer.length ){
 		
 		var info = jspack.Unpack("<ll" + (this.activeBuffer.length-10) + "s", this.activeBuffer );
@@ -165,18 +186,11 @@ RCon.prototype._receiveMessage = function( data ){
 		
 	}
 	
+	//If there is any data left from the buffer, repeat!
 	if( dataLeft > 0 ){
 		this._receiveMessage( data.slice( data.length - dataLeft ) );
 	}
 	
-};
-
-RCon.prototype._receiveError = function( data ){
-	console.log("error:", data);
-};
-
-RCon.prototype._receiveClose = function( data ){
-	console.log("close:", data);
 };
 
 
